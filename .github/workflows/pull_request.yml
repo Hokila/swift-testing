@@ -27,6 +27,7 @@ jobs:
       linux_os_versions: '["jammy"]'
       linux_static_sdk_versions: '["nightly-main", "nightly-6.4.x"]'
       windows_swift_versions: '["nightly-main", "nightly-6.4.x"]'
+      windows_build_command: '& ./.github/scripts/test-windows.ps1'
       enable_macos_checks: true
       macos_xcode_versions: '["swift_6.4"]'
       enable_ios_checks: true
