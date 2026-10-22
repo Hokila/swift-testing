@@ -219,6 +219,21 @@ extension Event.JUnitXMLRecorder {
     return result.joined(separator: "\n")
   }
 
+  /// Determines if a Unicode scalar is allowed in an XML 1.0 document.
+  ///
+  /// - Parameters:
+  ///   - scalar: The scalar to check.
+  ///
+  /// - Returns: Whether `scalar` is allowed in XML 1.0.
+  private static func _isAllowedInXML(_ scalar: UnicodeScalar) -> Bool {
+    switch scalar.value {
+    case 0x9, 0xA, 0xD, 0x20...0xD7FF, 0xE000...0xFFFD, 0x10000...0x10FFFF:
+      true
+    default:
+      false
+    }
+  }
+
   /// Escape a single Unicode character for use in an XML-encoded string.
   ///
   /// - Parameters:
@@ -226,7 +241,10 @@ extension Event.JUnitXMLRecorder {
   ///
   /// - Returns: `character`, or a string containing its escaped form.
   private static func _escapeForXML(_ character: Character) -> String {
-    switch character {
+    if character.unicodeScalars.contains(where: { !_isAllowedInXML($0) }) {
+      return "&#65533;"
+    }
+    return switch character {
     case #"""#:
       "&quot;"
     case "<":

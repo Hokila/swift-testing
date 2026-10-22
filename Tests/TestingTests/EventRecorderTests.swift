@@ -531,6 +531,46 @@ struct EventRecorderTests {
     #expect(!testCaseLines.isEmpty)
     #expect(!testCaseLines.contains { $0.contains("time=") })
   }
+
+  @Test(
+    "JUnitXMLRecorder replaces disallowed XML 1.0 control characters",
+    .bug("https://github.com/swiftlang/swift-testing/issues/1917")
+  )
+  func junitXMLReplacesDisallowedControlCharacters() throws {
+    let stream = Stream()
+    let recorder = Event.JUnitXMLRecorder(writingUsing: stream.write)
+    let test = Test(name: "controlCharTest") {}
+    let context = Event.Context(test: test, testCase: nil, iteration: nil, configuration: nil)
+    let runContext = Event.Context(test: nil, testCase: nil, iteration: nil, configuration: nil)
+
+    recorder.record(Event(.runStarted, testID: nil, testCaseID: nil), in: runContext)
+    recorder.record(Event(.testStarted, testID: test.id, testCaseID: nil), in: context)
+
+    let comment = Comment(rawValue: "A\u{1B}B\u{0B}C\tD\nE")
+    let issue = Issue(kind: .unconditional, comments: [comment], sourceContext: .init())
+    recorder.record(Event(.issueRecorded(issue), testID: test.id, testCaseID: nil), in: context)
+
+    recorder.record(Event(.testEnded, testID: test.id, testCaseID: nil), in: context)
+
+    let skippedTest = Test(name: "skippedControlCharTest") {}
+    let skippedContext = Event.Context(test: skippedTest, testCase: nil, iteration: nil, configuration: nil)
+    recorder.record(
+      Event(.testSkipped(.init(comment: Comment(rawValue: "Skipped \u{1B}"), sourceContext: .init())), testID: skippedTest.id, testCaseID: nil),
+      in: skippedContext
+    )
+
+    recorder.record(Event(.runEnded, testID: nil, testCaseID: nil), in: runContext)
+
+    let xmlString = stream.buffer.rawValue
+    #expect(xmlString.contains("A&#65533;B&#65533;C\tD&#10;E"))
+    #expect(xmlString.contains("<skipped>Skipped &#65533;</skipped>"))
+    let xmlData = try #require(xmlString.data(using: .utf8))
+    let parser = XMLParser(data: xmlData)
+    #expect(parser.parse())
+    if let error = parser.parserError {
+      throw error
+    }
+  }
 #endif
 
   @Test("HumanReadableOutputRecorder counts issues without associated tests")
